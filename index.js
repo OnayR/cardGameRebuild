@@ -44,7 +44,7 @@ client.deckCollection = new discord.Collection();
 client.basicCommands = new discord.Collection();
 client.slashCommand = new discord.Collection();
 client.aliases = new discord.Collection();
-client.players = new discord.Collection();
+client.currentGames = new discord.Collection();
 
 
 client.on("shardReady", (shardID) => {

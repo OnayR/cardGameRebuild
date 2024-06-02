@@ -6,15 +6,8 @@ const {
   StringSelectMenuOptionBuilder,
 } = require("@discordjs/builders");
 
-let turn = 0;
-let negativeTurn = 0;
-let punish = false;
-let twos = 0;
-let jokers = 0;
-let aas = false;
-let boer = false;
-let boerChange = "";
-client.players.set("turn", turn);
+let games = [];
+let users = [];
 
 client.on("interactionCreate", async (interaction) => {
   try {
