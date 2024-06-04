@@ -51,12 +51,11 @@ module.exports = {
 
     } else if (interaction.options.getSubcommand() === "start") {
       const gameId = client.currentGames.size + 1;
-      client.currentGames.set('currentGames', []);
       let gameData = {
         gameId: gameId,
         users: [],
         deck: deck,
-        currentDeck: [],
+        userDecks: [],
         currentCard: [],
         currentPlayer: 0,
         direction: 1,
@@ -80,7 +79,9 @@ module.exports = {
           iconURL: interaction.user.displayAvatarURL(),
         })
         .setDescription("Click the button to join the game!")
-        .setColor(0xe2725b);
+        .setColor(0xe2725b)
+        .setFooter({
+          text: `Game ID: ${gameId}`});
 
       await interaction.reply({
         embeds: [embed],
@@ -115,8 +116,11 @@ module.exports = {
               name: `Started by ${interaction.user.username}`,
               iconURL: interaction.user.displayAvatarURL(),
             })
-            .setDescription(`Players: ${gameData.users.map((user) => `<@${user}>`).join(", \n")}`)
-            .setColor(0xe2725b);
+            .setDescription(`Players: \n ${gameData.users.map((user) => `<@${user}>`).join(", \n")}`)
+            .setColor(0xe2725b)
+            .setFooter({
+              text: `Game ID: ${gameId}`
+          });
           await interaction.editReply({ embeds: [embed] });
         }
       });
@@ -131,7 +135,43 @@ module.exports = {
           content: "The game has started!",
         });
         gameData.gameStarted = true;
-        client.currentGames.set('currentGames', gameData);
+
+        // shuffle the deck
+        gameData.deck = gameData.deck.sort(() => Math.random() - 0.5);
+
+        // deal the cards
+        gameData.users.forEach((user) => {
+          gameData.userDecks.push(deck.splice(0, 7));
+        });
+
+        // place the first card
+        gameData.currentCard.push(gameData.deck.shift());
+
+        // check if the first card is a special card
+        while (gameData.currentCard[0][0] === "wild") {
+          gameData.deck.push(gameData.currentCard[0]);
+          gameData.currentCard[0] = gameData.deck.shift();
+        }
+
+        const button = new ButtonBuilder()
+          .setLabel("View Deck")
+          .setStyle("Primary")
+          .setCustomId(`view_deck-${gameData.gameId}`);
+
+        const row = new ActionRowBuilder().addComponents(button);
+
+        const embed = new EmbedBuilder()
+          .setTitle("Uno!")
+          .setImage(`https://raw.githubusercontent.com/OnayR/cardGameRebuild/main/cards/${gameData.currentCard[0][0]}-${gameData.currentCard[0][1]}.png`)
+          .setColor(0xe2725b)
+          .setFooter({
+            text: `<@${gameData.users[0]}>'s turn | Game ID: ${gameId}`
+          });
+
+        await interaction.channel.send({ embeds: [embed], components: [row] });
+        
+        client.currentGames.set(`game-${gameData.gameId}`, gameData);
+        console.log(client.currentGames.get(`game-${gameData.gameId}`, 'deck'));
       });
     }
   },
