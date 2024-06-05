@@ -1,13 +1,13 @@
 let deck = [
-    ["red", 0], ["red", 1], ["red", 1], ["red", 2], ["red", 2], ["red", 3], ["red", 3], ["red", 4], ["red", 4], ["red", 5], ["red", 5], ["red", 6], ["red", 6], ["red", 7],
-    ["red", 7], ["red", 8], ["red", 8], ["red", 9], ["red", 9], ["red", "skip"], ["red", "skip"], ["red", "reverse"], ["red", "reverse"], ["red", "draw2"], ["red", "draw2"],
-    ["blue", 0], ["blue", 1], ["blue", 1], ["blue", 2], ["blue", 2], ["blue", 3], ["blue", 3], ["blue", 4], ["blue", 4], ["blue", 5], ["blue", 5], ["blue", 6], ["blue", 6], ["blue", 7],
-    ["blue", 7], ["blue", 8], ["blue", 8], ["blue", 9], ["blue", 9], ["blue", "skip"], ["blue", "skip"], ["blue", "reverse"], ["blue", "reverse"], ["blue", "draw2"], ["blue", "draw2"],
-    ["green", 0], ["green", 1], ["green", 1], ["green", 2], ["green", 2], ["green", 3], ["green", 3], ["green", 4], ["green", 4], ["green", 5], ["green", 5], ["green", 6], ["green", 6], ["green", 7],
-    ["green", 7], ["green", 8], ["green", 8], ["green", 9], ["green", 9], ["green", "skip"], ["green", "skip"], ["green", "reverse"], ["green", "reverse"], ["green", "draw2"], ["green", "draw2"],
-    ["yellow", 0], ["yellow", 1], ["yellow", 1], ["yellow", 2], ["yellow", 2], ["yellow", 3], ["yellow", 3], ["yellow", 4], ["yellow", 4], ["yellow", 5], ["yellow", 5], ["yellow", 6], ["yellow", 6], ["yellow", 7],
-    ["yellow", 7], ["yellow", 8], ["yellow", 8], ["yellow", 9], ["yellow", 9], ["yellow", "skip"], ["yellow", "skip"], ["yellow", "reverse"], ["yellow", "reverse"], ["yellow", "draw2"], ["yellow", "draw2"],
-    ["wild", "picker"], ["wild", "picker"], ["wild", "draw4"], ["wild", "draw4"], ["wild", "draw4"], ["wild", "draw4"]
+    ["red", "0", "1"], ["red", "1", "1"], ["red", "1", "2"], ["red", "2", "1"], ["red", "2", "2"], ["red", "3", "1"], ["red", "3", "2"], ["red", "4", "1"], ["red", "4", "2"], ["red", "5", "1"], ["red", "5", "2"], ["red", "6", "1"], ["red", "6", "2"], ["red", "7", "1"],
+    ["red", "7", "2"], ["red", "8", "1"], ["red", "8", "2"], ["red", "9", "1"], ["red", "9", "2"], ["red", "skip", "1"], ["red", "skip", "2"], ["red", "reverse", "1"], ["red", "reverse", "2"], ["red", "draw2", "1"], ["red", "draw2", "2"],
+    ["blue", "0", "1"], ["blue", "1", "1"], ["blue", "1", "2"], ["blue", "2", "1"], ["blue", "2", "2"], ["blue", "3", "1"], ["blue", "3", "2"], ["blue", "4", "1"], ["blue", "4", "2"], ["blue", "5", "1"], ["blue", "5", "2"], ["blue", "6", "1"], ["blue", "6", "2"], ["blue", "7", "1"],
+    ["blue", "7", "2"], ["blue", "8", "1"], ["blue", "8", "2"], ["blue", "9", "1"], ["blue", "9", "2"], ["blue", "skip", "1"], ["blue", "skip", "2"], ["blue", "reverse", "1"], ["blue", "reverse", "2"], ["blue", "draw2", "1"], ["blue", "draw2", "2"],
+    ["green", "0", "1"], ["green", "1", "1"], ["green", "1", "2"], ["green", "2", "1"], ["green", "2", "2"], ["green", "3", "1"], ["green", "3", "2"], ["green", "4", "1"], ["green", "4", "2"], ["green", "5", "1"], ["green", "5", "2"], ["green", "6", "1"], ["green", "6", "2"], ["green", "7", "1"],
+    ["green", "7", "2"], ["green", "8", "1"], ["green", "8", "2"], ["green", "9", "1"], ["green", "9", "2"], ["green", "skip", "1"], ["green", "skip", "2"], ["green", "reverse", "1"], ["green", "reverse", "2"], ["green", "draw2", "1"], ["green", "draw2", "2"],
+    ["yellow", "0", "1"], ["yellow", "1", "1"], ["yellow", "1", "2"], ["yellow", "2", "1"], ["yellow", "2", "2"], ["yellow", "3", "1"], ["yellow", "3", "2"], ["yellow", "4", "1"], ["yellow", "4", "2"], ["yellow", "5", "1"], ["yellow", "5", "2"], ["yellow", "6", "1"], ["yellow", "6", "2"], ["yellow", "7", "1"],
+    ["yellow", "7", "2"], ["yellow", "8", "1"], ["yellow", "8", "2"], ["yellow", "9", "1"], ["yellow", "9", "2"], ["yellow", "skip", "1"], ["yellow", "skip", "2"], ["yellow", "reverse", "1"], ["yellow", "reverse", "2"], ["yellow", "draw2", "1"], ["yellow", "draw2", "2"],
+    ["wild", "picker", "1"], ["wild", "picker", "2"], ["wild", "draw4", "1"], ["wild", "draw4", "2"], ["wild", "draw4", "3"], ["wild", "draw4", "4"]
 ];
 
 const {
@@ -53,12 +53,13 @@ module.exports = {
       const gameId = client.currentGames.size + 1;
       let gameData = {
         gameId: gameId,
-        users: [],
+        users: [interaction.user.id],
         deck: deck,
         userDecks: [],
         currentCard: [],
-        currentPlayer: 0,
+        currentPlayer: interaction.user.id,
         direction: 1,
+        messageId: null,
         gameStarted: false,
         gameEnded: false,
       };
@@ -153,6 +154,9 @@ module.exports = {
           gameData.currentCard[0] = gameData.deck.shift();
         }
 
+        // Get the current player
+        const user = await client.users.fetch(gameData.currentPlayer);
+
         const button = new ButtonBuilder()
           .setLabel("View Deck")
           .setStyle("Primary")
@@ -165,10 +169,12 @@ module.exports = {
           .setImage(`https://raw.githubusercontent.com/OnayR/cardGameRebuild/main/cards/${gameData.currentCard[0][0]}-${gameData.currentCard[0][1]}.png`)
           .setColor(0xe2725b)
           .setFooter({
-            text: `<@${gameData.users[0]}>'s turn | Game ID: ${gameId}`
+            text: `${user.username}'s turn | Game ID: ${gameId}`
           });
 
         await interaction.channel.send({ embeds: [embed], components: [row] });
+
+        gameData.messageId = interaction.channel.lastMessageId;
         
         client.currentGames.set(`game-${gameData.gameId}`, gameData);
         console.log(client.currentGames.get(`game-${gameData.gameId}`, 'deck'));
