@@ -60,6 +60,9 @@ module.exports = {
         currentPlayer: interaction.user.id,
         direction: 1,
         messageId: null,
+        draw: 0,
+        selectedColor: null,
+        drawCard: false,
         gameStarted: false,
         gameEnded: false,
       };

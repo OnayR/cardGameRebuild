@@ -28,7 +28,8 @@ client.on("interactionCreate", async (interaction) => {
 
   if(interaction.isButton()) {
     if(interaction.customId.includes("view_deck")) {
-      const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
+      const gameId = interaction.customId.split("-")[1];
+      const gameData = client.currentGames.get(`game-${gameId}`);
       const userIndex = gameData.users.indexOf(interaction.user.id);
       const userDeck = gameData.userDecks[userIndex];
 
@@ -61,23 +62,35 @@ client.on("interactionCreate", async (interaction) => {
 
   if(interaction.isSelectMenu()) {
     if(interaction.customId === "select_card") {
-      const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
+      const gameId = interaction.values[0].split("-")[1];
+      const gameData = client.currentGames.get(`game-${gameId}`);
       const userIndex = gameData.users.indexOf(interaction.user.id);
       const userDeck = gameData.userDecks[userIndex];
       const selectedCard = interaction.values[0].split("_");
 
+      gameData.drawCard = true;
+
       if (interaction.user.id !== gameData.currentPlayer) return await interaction.reply({ content: "It's not your turn", ephemeral: true });
 
-      if (gameData.direction === 1) {
-        gameData.currentPlayer = gameData.users[(gameData.users.indexOf(interaction.user.id) + 1) % gameData.users.length];
-      } else {
-        gameData.currentPlayer = gameData.users[(gameData.users.indexOf(interaction.user.id) - 1 + gameData.users.length) % gameData.users.length];
+      function turnDirection() {
+        if (gameData.direction === 1) {
+          gameData.currentPlayer = gameData.users[(gameData.users.indexOf(interaction.user.id) + 1) % gameData.users.length];
+        } else {
+          gameData.currentPlayer = gameData.users[(gameData.users.indexOf(interaction.user.id) - 1 + gameData.users.length) % gameData.users.length];
+        }
       }
 
-      const user = await client.users.fetch(gameData.currentPlayer);
+      function checkCard() {
+        if (gameData.drawCard === true && gameData.draw > 0) {
+          for (let i = 0; i < gameData.draw; i++) {
+            userDeck.push(gameData.deck.shift());
+          }
+          gameData.drawCard = false;
+          gameData.draw = 0;
+        }
+      }
 
       const message = await interaction.channel.messages.fetch(gameData.messageId);
-      await message.delete();
 
       const button = new ButtonBuilder()
           .setLabel("View Deck")
@@ -86,7 +99,9 @@ client.on("interactionCreate", async (interaction) => {
 
 
       if(selectedCard[0] === "grab") {
-
+        turnDirection();
+        checkCard();
+        const user = await client.users.fetch(gameData.currentPlayer);
         const gameEmbed = new EmbedBuilder()
             .setTitle("Uno!")
             .setImage(`https://raw.githubusercontent.com/OnayR/cardGameRebuild/main/cards/${gameData.currentCard[0][0]}-${gameData.currentCard[0][1]}.png`)
@@ -108,19 +123,74 @@ client.on("interactionCreate", async (interaction) => {
             .setColor(0xe2725b)
             .setImage(`https://raw.githubusercontent.com/OnayR/cardGameRebuild/main/cards/${grabbedCard[0]}-${grabbedCard[1]}.png`);
 
-
+          await message.delete();
           await interaction.reply({ embeds: [embed], ephemeral: true });
           
           gameData.messageId = (await interaction.channel.send({ embeds: [gameEmbed], components: [row] })).id;
         } else {
           await interaction.reply("There are no more cards in the deck, You're in luck!");
-
+          await message.delete();
           await interaction.channel.send({ embeds: [gameEmbed], components: [row] });
 
         }
       } else {
+        // Find the card in the user's deck
         const cardIndex = userDeck.findIndex(card => card[0] === selectedCard[0] && card[1] === selectedCard[1] && card[2] === selectedCard[2]);
         const card = userDeck[cardIndex];
+
+        // Check if the card is valid or wild
+        if (card[0] === "wild") {
+          // Check if the card is a draw 4 card
+          if(card[1] === "draw4") {
+            gameData.draw += 4;
+            gameData.drawCard = false;
+          }
+
+          // Check if the card is a wild selector card
+          if(card[1] === "picker") {
+            const embed = new EmbedBuilder()
+              .setTitle("Pick a color")
+              .setColor(0xe2725b)
+              .setDescription("Choose a color for the next player to play");
+
+            let selectMenu = new ActionRowBuilder().addComponents(
+              new StringSelectMenuBuilder().setCustomId("select_color").setPlaceholder("Select a color").setMinValues(1).setMaxValues(1)
+            );
+
+            let colors = ["red", "blue", "green", "yellow"];
+
+            for (let i = 0; i < colors.length; i++) {
+              selectMenu.components[0].addOptions(
+                new StringSelectMenuOptionBuilder()
+                  .setLabel(colors[i])
+                  .setValue(colors[i])
+              );
+            }
+
+            await interaction.reply({ embeds: [embed], components: [selectMenu], ephemeral: true });
+            const selectedColor = interaction.values[0];
+            gameData.selectedColor = selectedColor;
+          }
+
+        } else if (gameData.currentCard[0] === "wild") {
+          
+        } else if (card[0] !== gameData.currentCard[0][0] && card[1] !== gameData.currentCard[0][1]) {
+          return await interaction.reply({ content: "You can't play that card", ephemeral: true });
+        }
+
+        if(card[1] === "draw2") {
+          gameData.draw += 2;
+          gameData.drawCard = false;
+        }
+
+        checkCard();
+
+        if (card[1] === "reverse") {
+          gameData.direction = 1 ? 0 : 1;
+        }
+
+        turnDirection();
+        const user = await client.users.fetch(gameData.currentPlayer);
 
         userDeck.splice(cardIndex, 1);
         gameData.deck.push(gameData.currentCard[0]);
@@ -139,9 +209,11 @@ client.on("interactionCreate", async (interaction) => {
           .setFooter({
             text: `${user.username}'s turn | Game ID: ${gameData.gameId}`
           });
-
+        
+        await message.delete();
         await interaction.reply({ content: `You picked a ${card[0]} ${card[1]}`, ephemeral: true })
 
+        gameData.draw = 0;
         gameData.messageId = (await interaction.channel.send({ embeds: [embed], components: [row] })).id;
 
         client.currentGames.set(`game-${gameData.gameId}`, gameData);
