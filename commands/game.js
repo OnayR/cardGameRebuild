@@ -93,7 +93,7 @@ module.exports = {
           name: `Started by ${interaction.user.username}`,
           iconURL: interaction.user.displayAvatarURL(),
         })
-        .setDescription("Click the button to join the game!")
+        .setDescription(`Players: \n <@${interaction.user.id}>`)
         .setColor(0xe2725b)
         .setFooter({
           text: `Game ID: ${gameId}`});
@@ -106,7 +106,7 @@ module.exports = {
       // create a collector to listen for button clicks
       const collector = interaction.channel.createMessageComponentCollector({
         componentType: ComponentType.Button,
-        time: 5000,
+        time: 30000,
       });
 
       // when a button is clicked add the user to the game
@@ -121,6 +121,13 @@ module.exports = {
           if (gameData.users.includes(button.user.id)) {
             return await button.reply({
               content: "You are already in the game",
+              ephemeral: true,
+            });
+          }
+
+          if (gameData.users.length === 10) {
+            return await button.reply({
+              content: "The game is full",
               ephemeral: true,
             });
           }
