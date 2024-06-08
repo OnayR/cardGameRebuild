@@ -194,7 +194,6 @@ client.on("interactionCreate", async (interaction) => {
 
         // Check if the card is a picker card (put at the end to prevent duplicate code)
         gameData.selectedColor = null;
-        client.currentGames.set(`game-${gameData.gameId}`, gameData);
         if(card[1] === "picker") {
           await interaction.channel.send(`<@${interaction.user.id}> played a picker card! They are currently picking a color!`);
           const pickerEmbed = new EmbedBuilder()
