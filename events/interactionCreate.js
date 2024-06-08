@@ -7,9 +7,6 @@ const {
 } = require("@discordjs/builders");
 const game = require("../commands/game");
 
-let games = [];
-let users = [];
-
 client.on("interactionCreate", async (interaction) => {
   try {
     const { commandName } = interaction;
@@ -28,8 +25,11 @@ client.on("interactionCreate", async (interaction) => {
 
   if(interaction.isButton()) {
     if(interaction.customId.includes("view_deck")) {
-      const gameId = interaction.customId.split("-")[1];
-      const gameData = client.currentGames.get(`game-${gameId}`);
+      if (interaction.deferred) await interaction.deferUpdate();
+      if (interaction.replied) await interaction.deleteReply();
+      console.log("view deck button clicked");
+      const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
+      console.log(gameData);
       const userIndex = gameData.users.indexOf(interaction.user.id);
       const userDeck = gameData.userDecks[userIndex];
 
@@ -56,14 +56,19 @@ client.on("interactionCreate", async (interaction) => {
         );
       }
 
-      await interaction.reply({ embeds: [embed], components: [selectMenu], ephemeral: true });
+      if (gameData.currentPlayer !== interaction.user.id) {
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+      } else {
+        await interaction.reply({ embeds: [embed], components: [selectMenu], ephemeral: true });
+      }
     }
   }
 
-  if(interaction.isSelectMenu()) {
+  if(interaction.isStringSelectMenu()) {
     if(interaction.customId === "select_card") {
-      const gameId = interaction.values[0].split("-")[1];
-      const gameData = client.currentGames.get(`game-${gameId}`);
+      if (interaction.deferred) await interaction.deferUpdate();
+      if (interaction.replied) await interaction.deleteReply();
+      const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
       const userIndex = gameData.users.indexOf(interaction.user.id);
       const userDeck = gameData.userDecks[userIndex];
       const selectedCard = interaction.values[0].split("_");
@@ -74,14 +79,15 @@ client.on("interactionCreate", async (interaction) => {
 
       function turnDirection() {
         if (gameData.direction === 1) {
-          gameData.currentPlayer = gameData.users[(gameData.users.indexOf(interaction.user.id) + 1) % gameData.users.length];
+          gameData.currentPlayer = gameData.users[(gameData.users.indexOf(gameData.currentPlayer) + 1) % gameData.users.length];
         } else {
-          gameData.currentPlayer = gameData.users[(gameData.users.indexOf(interaction.user.id) - 1 + gameData.users.length) % gameData.users.length];
+          gameData.currentPlayer = gameData.users[(gameData.users.indexOf(gameData.currentPlayer) - 1 + gameData.users.length) % gameData.users.length];
         }
       }
 
       function checkCard() {
         if (gameData.drawCard === true && gameData.draw > 0) {
+          interaction.channel.send(`<@${interaction.user.id}> drew ${gameData.draw} cards!`);
           for (let i = 0; i < gameData.draw; i++) {
             userDeck.push(gameData.deck.shift());
           }
@@ -100,7 +106,6 @@ client.on("interactionCreate", async (interaction) => {
 
       if(selectedCard[0] === "grab") {
         turnDirection();
-        checkCard();
         const user = await client.users.fetch(gameData.currentPlayer);
         const gameEmbed = new EmbedBuilder()
             .setTitle("Uno!")
@@ -116,8 +121,6 @@ client.on("interactionCreate", async (interaction) => {
           const grabbedCard = gameData.deck.shift();
           userDeck.push(grabbedCard);
 
-          console.log("grabbed Card" + grabbedCard);
-
           const embed = new EmbedBuilder()
             .setTitle(`You grabbed a ${grabbedCard[0]} ${grabbedCard[1]}`)
             .setColor(0xe2725b)
@@ -127,53 +130,30 @@ client.on("interactionCreate", async (interaction) => {
           await interaction.reply({ embeds: [embed], ephemeral: true });
           
           gameData.messageId = (await interaction.channel.send({ embeds: [gameEmbed], components: [row] })).id;
+
         } else {
           await interaction.reply("There are no more cards in the deck, You're in luck!");
           await message.delete();
           await interaction.channel.send({ embeds: [gameEmbed], components: [row] });
 
         }
+        checkCard();
       } else {
         // Find the card in the user's deck
         const cardIndex = userDeck.findIndex(card => card[0] === selectedCard[0] && card[1] === selectedCard[1] && card[2] === selectedCard[2]);
         const card = userDeck[cardIndex];
 
         // Check if the card is valid or wild
-        if (card[0] === "wild") {
+        if (gameData.selectedColor !== null && card[0] !== gameData.selectedColor) {
+          return await interaction.reply({ content: `You can't play that card, it has to be a ${gameData.selectedColor}.`, ephemeral: true });
+        } else if (card[0] === "wild") {
           // Check if the card is a draw 4 card
           if(card[1] === "draw4") {
             gameData.draw += 4;
             gameData.drawCard = false;
           }
 
-          // Check if the card is a wild selector card
-          if(card[1] === "picker") {
-            const embed = new EmbedBuilder()
-              .setTitle("Pick a color")
-              .setColor(0xe2725b)
-              .setDescription("Choose a color for the next player to play");
-
-            let selectMenu = new ActionRowBuilder().addComponents(
-              new StringSelectMenuBuilder().setCustomId("select_color").setPlaceholder("Select a color").setMinValues(1).setMaxValues(1)
-            );
-
-            let colors = ["red", "blue", "green", "yellow"];
-
-            for (let i = 0; i < colors.length; i++) {
-              selectMenu.components[0].addOptions(
-                new StringSelectMenuOptionBuilder()
-                  .setLabel(colors[i])
-                  .setValue(colors[i])
-              );
-            }
-
-            await interaction.reply({ embeds: [embed], components: [selectMenu], ephemeral: true });
-            const selectedColor = interaction.values[0];
-            gameData.selectedColor = selectedColor;
-          }
-
-        } else if (gameData.currentCard[0] === "wild") {
-          
+        } else if (gameData.currentCard[0][0] === "wild") {
         } else if (card[0] !== gameData.currentCard[0][0] && card[1] !== gameData.currentCard[0][1]) {
           return await interaction.reply({ content: "You can't play that card", ephemeral: true });
         }
@@ -183,13 +163,19 @@ client.on("interactionCreate", async (interaction) => {
           gameData.drawCard = false;
         }
 
-        checkCard();
-
         if (card[1] === "reverse") {
+          if (gameData.users.length === 2) {
+            gameData.currentPlayer = gameData.users[(gameData.users.indexOf(gameData.currentPlayer) + 1) % gameData.users.length];
+          }
           gameData.direction = 1 ? 0 : 1;
         }
 
+        if (card[1] === "skip") {
+          gameData.currentPlayer = gameData.users[(gameData.users.indexOf(gameData.currentPlayer) + 1) % gameData.users.length];
+        }
+
         turnDirection();
+
         const user = await client.users.fetch(gameData.currentPlayer);
 
         userDeck.splice(cardIndex, 1);
@@ -197,8 +183,6 @@ client.on("interactionCreate", async (interaction) => {
         gameData.currentCard[0] = card;
 
         gameData.deck = gameData.deck.sort(() => Math.random() - 0.5);
-
-        console.log(gameData);
 
         const row = new ActionRowBuilder().addComponents(button);
 
@@ -211,13 +195,136 @@ client.on("interactionCreate", async (interaction) => {
           });
         
         await message.delete();
-        await interaction.reply({ content: `You picked a ${card[0]} ${card[1]}`, ephemeral: true })
 
-        gameData.draw = 0;
+        // Check if the card is a picker card (put at the end to prevent duplicate code)
+        gameData.selectedColor = null;
+        client.currentGames.set(`game-${gameData.gameId}`, gameData);
+        if(card[1] === "picker") {
+          await interaction.channel.send(`<@${interaction.user.id}> played a picker card! They are currently picking a color!`);
+          const pickerEmbed = new EmbedBuilder()
+            .setTitle("Pick a color")
+            .setColor(0xe2725b)
+            .setDescription("Choose a color for the next player to play");
+
+          let selectMenu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder().setCustomId("select_color").setPlaceholder("Select a color").setMinValues(1).setMaxValues(1)
+          );
+          
+          selectMenu.components[0].addOptions(
+            new StringSelectMenuOptionBuilder()
+              .setLabel("Red")
+              .setValue("red")
+          );
+
+          selectMenu.components[0].addOptions(
+            new StringSelectMenuOptionBuilder()
+              .setLabel("Blue")
+              .setValue("blue")
+          );
+
+          selectMenu.components[0].addOptions(
+            new StringSelectMenuOptionBuilder()
+              .setLabel("Green")
+              .setValue("green")
+          );
+
+          selectMenu.components[0].addOptions(
+            new StringSelectMenuOptionBuilder()
+              .setLabel("Yellow")
+              .setValue("yellow")
+          );
+
+          // Send the message and wait for a reply
+          await interaction.reply({ embeds: [pickerEmbed], components: [selectMenu], ephemeral: true });
+
+          checkCard();
+
+          await interaction.channel.send(`${interaction.user.username} is picking a color!`);
+
+          client.currentGames.set(`game-${gameData.gameId}`, gameData);
+          return;
+
+          // const filter = (i) => i.customId === 'select_color' && i.user.id === interaction.user.id;
+          // try {
+          //   const userInteraction = await interaction.channel.awaitMessageComponent({ filter, time: 5000 });
+          //   const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
+          
+          //   if (userInteraction) {
+          //     const selectedColor = userInteraction.values[0];
+          //     gameData.selectedColor = selectedColor;
+          //     console.log("selected color: " + selectedColor);
+          
+          //     await interaction.channel.send({ content: `You selected ${selectedColor}` });
+          
+          //     gameData.messageId = (await interaction.channel.send({ embeds: [embed], components: [row] })).id;
+          
+          //     checkCard();
+          
+          //     client.currentGames.set(`game-${gameData.gameId}`, gameData);
+          //   }
+          // } catch (error) {
+          //   const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
+
+          //   await interaction.channel.send({ content: 'No input received within the time limit so any card can be placed.' });
+          
+          //   gameData.messageId = (await interaction.channel.send({ embeds: [embed], components: [row] })).id;
+          
+          //   checkCard();
+          // }
+        }
+        // end picker card
+        
+        await interaction.reply(`You played a ${card[0]} ${card[1]}!`, { ephemeral: true })
+
         gameData.messageId = (await interaction.channel.send({ embeds: [embed], components: [row] })).id;
+
+        checkCard();
+
+        if (card[1] === "0") {
+            let lastDeck = gameData.userDecks.pop();
+            gameData.userDecks.unshift(lastDeck);
+
+            await interaction.channel.send("A 0 card was played, all decks have been shifted!");
+        }
 
         client.currentGames.set(`game-${gameData.gameId}`, gameData);
       }
+    }
+
+
+    // Select color
+    if (interaction.customId === "select_color") {
+      if (interaction.deferred) await interaction.deferUpdate();
+      if (interaction.replied) await interaction.deleteReply();
+      const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
+      const userIndex = gameData.users.indexOf(interaction.user.id);
+      const userDeck = gameData.userDecks[userIndex];
+      const selectedColor = interaction.values[0];
+
+      const user = await client.users.fetch(gameData.currentPlayer);
+      
+      gameData.selectedColor = selectedColor;
+      console.log("selected color: " + selectedColor);
+
+      const embed = new EmbedBuilder()
+          .setTitle("Uno!")
+          .setImage(`https://raw.githubusercontent.com/OnayR/cardGameRebuild/main/cards/${gameData.currentCard[0][0]}-${gameData.currentCard[0][1]}.png`)
+          .setColor(0xe2725b)
+          .setFooter({
+            text: `${user.username}'s turn | Game ID: ${gameData.gameId}`
+          });
+      
+      const button = new ButtonBuilder()
+      .setLabel("View Deck")
+      .setStyle("Primary")
+      .setCustomId(`view_deck-${gameData.gameId}`);
+
+      const row = new ActionRowBuilder().addComponents(button);
+
+      gameData.messageId = (await interaction.channel.send({ embeds: [embed], components: [row] })).id;
+
+      await interaction.channel.send({ content: `<@${interaction.user.id}> selected ${selectedColor}` });
+      client.currentGames.set(`game-${gameData.gameId}`, gameData);
     }
   }
 });

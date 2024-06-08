@@ -50,7 +50,17 @@ module.exports = {
 
 
     } else if (interaction.options.getSubcommand() === "start") {
-      const gameId = client.currentGames.size + 1;
+      const currentGame = client.currentGames.find((game) => game.users.includes(interaction.user.id));
+      if (currentGame !== undefined) {
+        return await interaction.reply({
+          content: "You are already in a game",
+          ephemeral: true,
+        });
+      }
+      let gameId = client.currentGames.size + 1;
+      while (client.currentGames.has(gameId)) {
+        gameId++;
+      }
       let gameData = {
         gameId: gameId,
         users: [interaction.user.id],
@@ -66,6 +76,7 @@ module.exports = {
         gameStarted: false,
         gameEnded: false,
       };
+      client.currentGames.set(`game-${gameData.gameId}`, gameData);
 
       // create a button to join the game
       const button = new ButtonBuilder()
@@ -101,6 +112,12 @@ module.exports = {
       // when a button is clicked add the user to the game
       collector.on("collect", async (button) => {
         if (button.customId === "join_game") {
+          if (currentGame !== undefined) {
+            return await interaction.reply({
+              content: "You are already in a game",
+              ephemeral: true,
+            });
+          }
           if (gameData.users.includes(button.user.id)) {
             return await button.reply({
               content: "You are already in the game",
@@ -131,6 +148,7 @@ module.exports = {
       collector.on("end", async () => {
         await interaction.deleteReply();
         if (gameData.users.length < 2) {
+          client.currentGames.delete(`game-${gameData.gameId}`);
           return await interaction.followUp({
             content: "The game has been cancelled due to not enough players",
           });
@@ -146,13 +164,14 @@ module.exports = {
         // deal the cards
         gameData.users.forEach((user) => {
           gameData.userDecks.push(deck.splice(0, 7));
+          gameData.userDecks[gameData.userDecks.length - 1].push(['wild', 'picker', '1'])
         });
 
         // place the first card
         gameData.currentCard.push(gameData.deck.shift());
 
         // check if the first card is a special card
-        while (gameData.currentCard[0][0] === "wild") {
+        while (gameData.currentCard[0][0] === "wild" || gameData.currentCard[0][1] === "draw2" || gameData.currentCard[0][1] === "skip" || gameData.currentCard[0][1] === "reverse") {
           gameData.deck.push(gameData.currentCard[0]);
           gameData.currentCard[0] = gameData.deck.shift();
         }
@@ -180,7 +199,6 @@ module.exports = {
         gameData.messageId = interaction.channel.lastMessageId;
         
         client.currentGames.set(`game-${gameData.gameId}`, gameData);
-        console.log(client.currentGames.get(`game-${gameData.gameId}`, 'deck'));
       });
     }
   },
