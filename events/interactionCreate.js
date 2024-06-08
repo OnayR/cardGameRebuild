@@ -180,6 +180,12 @@ client.on("interactionCreate", async (interaction) => {
 
         gameData.deck = gameData.deck.sort(() => Math.random() - 0.5);
 
+        if (userDeck.length === 0) {
+          await interaction.channel.send(`<@${interaction.user.id}> has won the game!`);
+          client.currentGames.delete(`game-${gameData.gameId}`);
+          return;
+        }
+
         const row = new ActionRowBuilder().addComponents(button);
 
         const embed = new EmbedBuilder()
