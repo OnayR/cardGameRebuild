@@ -25,9 +25,7 @@ client.on("interactionCreate", async (interaction) => {
 
   if(interaction.isButton()) {
     if(interaction.customId.includes("view_deck")) {
-      console.log("view deck button clicked");
       const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
-      console.log(gameData);
       const userIndex = gameData.users.indexOf(interaction.user.id);
       const userDeck = gameData.userDecks[userIndex];
 
@@ -275,7 +273,6 @@ client.on("interactionCreate", async (interaction) => {
       const user = await client.users.fetch(gameData.currentPlayer);
       
       gameData.selectedColor = selectedColor;
-      console.log("selected color: " + selectedColor);
 
       const embed = new EmbedBuilder()
           .setTitle("Uno!")
