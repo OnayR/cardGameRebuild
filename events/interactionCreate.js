@@ -25,8 +25,6 @@ client.on("interactionCreate", async (interaction) => {
 
   if(interaction.isButton()) {
     if(interaction.customId.includes("view_deck")) {
-      if (interaction.deferred) await interaction.deferUpdate();
-      if (interaction.replied) await interaction.deleteReply();
       console.log("view deck button clicked");
       const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
       console.log(gameData);
@@ -66,8 +64,6 @@ client.on("interactionCreate", async (interaction) => {
 
   if(interaction.isStringSelectMenu()) {
     if(interaction.customId === "select_card") {
-      if (interaction.deferred) await interaction.deferUpdate();
-      if (interaction.replied) await interaction.deleteReply();
       const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
       const userIndex = gameData.users.indexOf(interaction.user.id);
       const userDeck = gameData.userDecks[userIndex];
@@ -243,34 +239,6 @@ client.on("interactionCreate", async (interaction) => {
 
           client.currentGames.set(`game-${gameData.gameId}`, gameData);
           return;
-
-          // const filter = (i) => i.customId === 'select_color' && i.user.id === interaction.user.id;
-          // try {
-          //   const userInteraction = await interaction.channel.awaitMessageComponent({ filter, time: 5000 });
-          //   const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
-          
-          //   if (userInteraction) {
-          //     const selectedColor = userInteraction.values[0];
-          //     gameData.selectedColor = selectedColor;
-          //     console.log("selected color: " + selectedColor);
-          
-          //     await interaction.channel.send({ content: `You selected ${selectedColor}` });
-          
-          //     gameData.messageId = (await interaction.channel.send({ embeds: [embed], components: [row] })).id;
-          
-          //     checkCard();
-          
-          //     client.currentGames.set(`game-${gameData.gameId}`, gameData);
-          //   }
-          // } catch (error) {
-          //   const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
-
-          //   await interaction.channel.send({ content: 'No input received within the time limit so any card can be placed.' });
-          
-          //   gameData.messageId = (await interaction.channel.send({ embeds: [embed], components: [row] })).id;
-          
-          //   checkCard();
-          // }
         }
         // end picker card
         
@@ -294,8 +262,6 @@ client.on("interactionCreate", async (interaction) => {
 
     // Select color
     if (interaction.customId === "select_color") {
-      if (interaction.deferred) await interaction.deferUpdate();
-      if (interaction.replied) await interaction.deleteReply();
       const gameData = client.currentGames.find((game) => game.users.includes(interaction.user.id));
       const userIndex = gameData.users.indexOf(interaction.user.id);
       const userDeck = gameData.userDecks[userIndex];

@@ -164,7 +164,6 @@ module.exports = {
         // deal the cards
         gameData.users.forEach((user) => {
           gameData.userDecks.push(deck.splice(0, 7));
-          gameData.userDecks[gameData.userDecks.length - 1].push(['wild', 'picker', '1'])
         });
 
         // place the first card
