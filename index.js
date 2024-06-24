@@ -7,6 +7,7 @@
 
 const discord = require("discord.js");
 const config = require("./config/config.json");
+const {name, version, description, author, repository} = require('./package.json');
 
 /**********************************************************
  * @param {1} discord_client
@@ -80,3 +81,15 @@ requirehandlers();
  *********************************************************/
 
 client.login(config.token);
+client.login(config.token)
+      .then(function () {
+        console.log(`Logged in as the ${client.user.tag}!`);
+        console.log(`Bot Name: ${name}`);
+        console.log(`Version: ${version}`);
+        console.log(`Description: ${description}`);
+        console.log(`Author: ${author}`);
+        console.log(`Repository: ${repository.url}`);
+      })
+      .catch(function (error) {
+        console.log(error);
+      });
